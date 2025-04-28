@@ -12,24 +12,25 @@ stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
 
 class ProductRevenue:
     def __init__(self):
-        self.prod_id2name = {}
+        self.prods = {}
         self.prod_revenue = defaultdict(float)
 
     def add(self, prod, amount):
         assert "id" in prod, prod
         assert "name" in prod, prod
-        if prod["id"] in self.prod_revenue:
-            self.prod_revenue[prod["id"]] += amount
-            assert self.prod_id2name[prod["id"]] == prod["name"], f'id={prod["id"]}: {self.prod_id2name[prod["id"]]} v.s. {prod["name"]}'
+        prod_id = prod["id"]
+        if prod_id in self.prod_revenue:
+            self.prod_revenue[prod_id] += amount
+            assert self.prods[prod_id]["name"] == prod["name"], f'id={prod_id}: {self.prods[prod_id]["id"]} v.s. {prod["name"]}'
         else:
-            self.prod_id2name[prod["id"]] = prod["name"]
-            self.prod_revenue[prod["id"]] = amount
+            self.prods[prod_id] = prod
+            self.prod_revenue[prod_id] = amount
 
     def revenue(self):
         revenue = []
         for prod_id,rev in self.prod_revenue.items():
-            prod_name = self.prod_id2name[prod_id]
-            revenue.append((prod_name, prod_id, rev))
+            prod = self.prods[prod_id]
+            revenue.append((prod, rev))
         return revenue
 
 
@@ -192,12 +193,20 @@ def main():
             print(t)
             sys.exit(1)
 
-    table = PrettyTable(["Product name", "Product ID", "Revenue"])
+    table = PrettyTable(["Product name", "Product ID", "Revenue", "Email", "Rate (%)"])
     total_revenue = 0
-    for name, id, rev in prod_revenue.revenue():
+    for prod, rev in prod_revenue.revenue():
         total_revenue += rev / 100
-        table.add_row([name, id, rev/100])
-    table.add_row(["Total", "-", total_revenue])
+        email = ""
+        rate = ""
+        try:
+            email = prod["metadata"]["email"]
+            rate = prod["metadata"]["rate"]
+            rate = f"{float(rate)*100:.1f}"
+        except Exception as e:
+            pass
+        table.add_row([prod["name"], prod["id"], rev/100, email, rate])
+    table.add_row(["Total", "-", f"{total_revenue:.2f}", "", ""])
     print(table)
 
 
